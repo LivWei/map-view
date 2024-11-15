@@ -2,7 +2,7 @@
  * @Author: liuwei 893624020@qq.com
  * @Date: 2024-11-12 17:45:50
  * @LastEditors: liuwei 893624020@qq.com
- * @LastEditTime: 2024-11-15 14:54:48
+ * @LastEditTime: 2024-11-15 15:48:46
  * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -32,7 +32,7 @@
       // 矢量 http://19.45.1.42:8021/zgjcs/rest/services/SZMAP_ZW_2024_Q2_4490/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef
       // 影像 http://19.45.1.42:8021/zgjcs/rest/services/SZSRI_20240102_50_4547_GK2_V2014/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef
       const map_layer_url =
-        "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZMAP_ZW_2024_Q2_4490/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf";
+        "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZSRI_20240102_50_4547_GK2_V2014/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf";
       
       let layerName = ''
       let token = ''
@@ -54,7 +54,7 @@
         }
         const matrixIds = Array.from({ length: 17 }, (_, i) => i.toString());
 
-        const list = ["img", "cia"];
+        const list = ["vec", "cva"];
         let layerList = [];
         list.forEach((item) => {
           layerList.push(
