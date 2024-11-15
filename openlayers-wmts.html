@@ -2,7 +2,7 @@
  * @Author: liuwei 893624020@qq.com
  * @Date: 2024-11-12 17:45:50
  * @LastEditors: liuwei 893624020@qq.com
- * @LastEditTime: 2024-11-15 13:46:29
+ * @LastEditTime: 2024-11-15 14:03:05
  * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -27,61 +27,105 @@
   <body onload="init()">
     <div id="map"></div>
     <script type="text/javascript">
-      const testurl3 =
+      const map_layer_url =
         "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZMAP_ZW_2024_Q2_4490/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf";
+
+      const base_layer_url =
+        "https://t0.tianditu.gov.cn/img_c/wmts?request=GetCapabilities&service=wmts";
 
       function init() {
         const parser = new ol.format.WMTSCapabilities();
         let map;
-        
-        proj4.defs("EPSG:4490", "+proj=longlat +ellps=GRS80 +no_defs")
-        ol.proj.proj4.register(proj4)
 
-        const projection = new ol.proj.Projection({
-          code: 'EPSG:4490', 
-          units: 'degrees',
-          axisOrientation: 'neu'
-        })
-        projection.setExtent([-180, -90, 180, 90]);
-        projection.setWorldExtent([-180, -90, 180, 90]);
-        ol.proj.addProjection(projection)
         
-        fetch(testurl3)
+
+        // 请求天地图的元数据
+        fetch(base_layer_url)
           .then(function (response) {
             return response.text();
           })
           .then(function (text) {
-            const result = parser.read(text);
-            const options = ol.source.WMTS.optionsFromCapabilities(result, {
-              layer: "SZMAP_ZW_2024_Q2_4490"
-            });
-            console.log(options)
-            map = new ol.Map({
-              layers: [
-                new ol.layer.Tile({
-                  source: new ol.source.WMTS({
-                    url: "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZMAP_ZW_2024_Q2_4490/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf",
-                    layer: options.layer,
-                    matrixSet: options.matrixSet,          
-                    format: options.format,
-                    projection: options.projection,
-                    requestEncoding: options.requestEncoding,
-                    style: options.style,                   
-                    tileGrid: options.tileGrid,
-                    token: '846d7b91-d2a3-4edb-978c-48063e2840ef',
-                    wrapX: true   
-                  }),
-                }),
-              ],
-              target: "map",
-              view: new ol.View({
-                center: [114.16501, 22.5613],
-                projection: projection,
-                zoom: 12,
-                maxZoom: 17,
-                minZoom: 1,
+            // 设置投影
+            const projection = ol.proj.get("EPSG:4326");
+            const projectionExtent = projection.getExtent();
+            const size = ol.extent.getWidth(projectionExtent) / 256;
+            const resolutions = [];
+            for (let z = 2; z < 19; ++z) {
+              resolutions[z] = size / Math.pow(2, z);
+            }
+            const matrixIds = Array.from({ length: 17 }, (_, i) =>
+              i.toString()
+            );
+
+            const base_Source = new ol.source.WMTS({
+              url: "https://t{0-6}.tianditu.gov.cn/img_c/wmts?tk=18822034646069369d70e5264082114f", // 天地图key去官网很容易申请
+              layer: 'img',
+              matrixSet: "c",
+              style: "default",
+              crossOrigin: "anonymous",
+              format: "tiles",
+              wrapX: true,
+              tileGrid: new ol.tilegrid.WMTS({
+                origin: ol.extent.getTopLeft(projection.getExtent()),
+                resolutions: resolutions,
+                matrixIds: matrixIds,
               }),
             });
+
+            const base_Layer = new ol.layer.Tile({
+              source: base_Source,
+            });
+
+            // 请求图层的元数据
+            fetch(map_layer_url)
+              .then(function (response) {
+                return response.text();
+              })
+              .then(function (text) {
+                // 注册4490坐标系
+                proj4.defs("EPSG:4490", "+proj=longlat +ellps=GRS80 +no_defs");
+                ol.proj.proj4.register(proj4);
+                const projection = new ol.proj.Projection({
+                  code: "EPSG:4490",
+                  units: "degrees",
+                  axisOrientation: "neu",
+                });
+                projection.setExtent([-180, -90, 180, 90]);
+                projection.setWorldExtent([-180, -90, 180, 90]);
+                ol.proj.addProjection(projection);
+                const result = parser.read(text);
+                const options = ol.source.WMTS.optionsFromCapabilities(result, {
+                  layer: "SZMAP_ZW_2024_Q2_4490",
+                });
+                map = new ol.Map({
+                  layers: [
+                    base_Layer,
+                    new ol.layer.Tile({
+                      // opacity: 0.5,
+                      source: new ol.source.WMTS({
+                        url: "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZMAP_ZW_2024_Q2_4490/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf",
+                        layer: options.layer,
+                        matrixSet: options.matrixSet,
+                        format: options.format,
+                        projection: options.projection,
+                        requestEncoding: options.requestEncoding,
+                        style: options.style,
+                        tileGrid: options.tileGrid,
+                        token: "846d7b91-d2a3-4edb-978c-48063e2840ef",
+                        wrapX: true,
+                      }),
+                    }),
+                  ],
+                  target: "map",
+                  view: new ol.View({
+                    center: [114.16501, 22.5613],
+                    projection: projection,
+                    zoom: 12,
+                    maxZoom: 17,
+                    minZoom: 1,
+                  }),
+                });
+              });
           });
       }
     </script>
