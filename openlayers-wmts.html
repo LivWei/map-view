@@ -2,7 +2,7 @@
  * @Author: liuwei 893624020@qq.com
  * @Date: 2024-11-12 17:45:50
  * @LastEditors: liuwei 893624020@qq.com
- * @LastEditTime: 2024-11-15 14:03:05
+ * @LastEditTime: 2024-11-15 14:20:15
  * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -28,7 +28,7 @@
     <div id="map"></div>
     <script type="text/javascript">
       const map_layer_url =
-        "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZMAP_ZW_2024_Q2_4490/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf";
+        "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZSRI_20240102_50_4547_GK2_V2014/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf";
 
       const base_layer_url =
         "https://t0.tianditu.gov.cn/img_c/wmts?request=GetCapabilities&service=wmts";
@@ -76,6 +76,25 @@
               source: base_Source,
             });
 
+            const base_label_Source = new ol.source.WMTS({
+              url: "https://t{0-6}.tianditu.gov.cn/cia_c/wmts?tk=18822034646069369d70e5264082114f", // 天地图key去官网很容易申请
+              layer: 'cia',
+              matrixSet: "c",
+              style: "default",
+              crossOrigin: "anonymous",
+              format: "tiles",
+              wrapX: true,
+              tileGrid: new ol.tilegrid.WMTS({
+                origin: ol.extent.getTopLeft(projection.getExtent()),
+                resolutions: resolutions,
+                matrixIds: matrixIds,
+              }),
+            });
+
+            const base_label_Layer = new ol.layer.Tile({
+              source: base_label_Source,
+            });
+
             // 请求图层的元数据
             fetch(map_layer_url)
               .then(function (response) {
@@ -95,15 +114,16 @@
                 ol.proj.addProjection(projection);
                 const result = parser.read(text);
                 const options = ol.source.WMTS.optionsFromCapabilities(result, {
-                  layer: "SZMAP_ZW_2024_Q2_4490",
+                  layer: "SZSRI_20240102_50_4547_GK2_V2014",
                 });
                 map = new ol.Map({
                   layers: [
                     base_Layer,
+                    base_label_Layer,
                     new ol.layer.Tile({
-                      // opacity: 0.5,
+                      opacity: 0.5,
                       source: new ol.source.WMTS({
-                        url: "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZMAP_ZW_2024_Q2_4490/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf",
+                        url: "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZSRI_20240102_50_4547_GK2_V2014/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf",
                         layer: options.layer,
                         matrixSet: options.matrixSet,
                         format: options.format,
