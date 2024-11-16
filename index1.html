@@ -1,0 +1,111 @@
+<!--
+ * @Author: liuwei 893624020@qq.com
+ * @Date: 2024-11-15 09:17:39
+ * @LastEditors: liuwei 893624020@qq.com
+ * @LastEditTime: 2024-11-15 13:09:26
+ * @FilePath: \map-view\index.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>openlayers-地图服务预览</title>
+    <style type="text/css">
+      html,
+      body,
+      #map {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+      }
+    </style>
+
+    <script src="./js/openlayers/ol.js"></script>
+    <script src="./js/openlayers/proj4-src.min.js"></script>
+    <link rel="stylesheet" href="./js/openlayers/ol.css" />
+  </head>
+  <body onload="init()">
+    <div id="map"></div>
+
+    <script type="text/javascript">
+      function init() {
+        const capabilitiesUrl =
+          "https://t0.tianditu.gov.cn/img_c/wmts?request=GetCapabilities&service=wmts";
+        const parser = new ol.format.WMTSCapabilities();
+
+        proj4.defs("EPSG:4490", "+proj=longlat +ellps=GRS80 +no_defs");
+        ol.proj.proj4.register(proj4);
+
+        fetch(capabilitiesUrl)
+          .then((response) => response.text())
+          .then((text) => {
+            const result = parser.read(text);
+            const options = ol.source.WMTS.optionsFromCapabilities(result, {
+              layer: "img",
+              matrixSet: "c",
+            });
+            debugger;
+
+            proj4.defs("EPSG:4490","GEOGCS[\"China Geodetic Coordinate System 2000\",DATUM[\"China_2000\",SPHEROID[\"CGCS2000\",6378137,298.257222101,AUTHORITY[\"EPSG\",\"1024\"]],AUTHORITY[\"EPSG\",\"1043\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4490\"]]");
+            ol.proj.proj4.register(proj4);
+
+            const projection = new ol.proj.Projection({
+              code: 'EPSG:4490', 
+              units: 'degrees',
+              axisOrientation: 'neu'
+            })
+            projection.setExtent([-180, -90, 180, 90]);
+            projection.setWorldExtent([-180, -90, 180, 90]);
+            ol.proj.addProjection(projection)
+
+            let projectionExtent = projection.getExtent();
+            debugger
+            let size = ol.extent.getWidth(projectionExtent) / 256;
+            let resolutions = []; // 瓦片地图分辨率
+            let matrixIds = [];
+            for (let z = 0; z < 19; ++z) {
+              resolutions[z] = size / Math.pow(2, z);
+              matrixIds[z] = z + 1
+            }
+            console.log(resolutions)
+            console.log(matrixIds)
+            
+
+            let wmtsTileGrid = new ol.tilegrid.WMTS({
+              origin: ol.extent.getTopLeft(projectionExtent), // 原点（左上角）
+              resolutions: resolutions, // 瓦片分辨率
+              matrixIds: matrixIds, // 矩阵ID，就是瓦片坐标系z维度各个层级的标识
+            });
+
+            // WMTS数据源与地图
+            let wmtsSource = new ol.source.WMTS({
+              url: "http://t0.tianditu.gov.cn/img_w/wmts?tk=18822034646069369d70e5264082114f", // 天地图key去官网很容易申请
+              layer: "img", // 图层名
+              // 投影坐标系矩阵集，一定要和WMTS capabilities文档中一致，否则会加载失败
+              matrixSet: "c",
+              format: "tiles", // 图片格式
+              projection: projection, // 投影坐标系
+              requestEncoding: "KVP", // 请求的编码方式，默认就是'KVP'
+              // 在WMTS capabilities文档中对应的样式名，一定要写，否则会加载失败
+              style: "default",
+              tileGrid: wmtsTileGrid, // 投影坐标系
+            });
+            let wmtsLayer = new ol.layer.Tile({
+              source: wmtsSource,
+            });
+
+            let map = new ol.Map({
+              target: "map",
+              layers: [wmtsLayer],
+              view: new ol.View({
+                center: [114.55365478992464, 30.488466965192984],
+                zoom: 4,
+              }),
+            });
+          });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,83 @@
+<!--
+ * @Author: liuwei 893624020@qq.com
+ * @Date: 2024-11-12 17:45:50
+ * @LastEditors: liuwei 893624020@qq.com
+ * @LastEditTime: 2024-11-13 16:06:07
+ * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>openlayers-wmts</title>
+    <script src="./ol.js"></script>
+    <script src="./proj4-src.min.js"></script>
+    <link rel="stylesheet" href="./ol.css" />
+    <style type="text/css">
+      html,
+      body,
+      #map {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+      }
+    </style>
+  </head>
+  <body onload="init()">
+    <div id="map"></div>
+    <script type="text/javascript">
+      const testurl3 =
+        "./1.xml";
+
+      function init() {
+        const parser = new ol.format.WMTSCapabilities();
+        let map;
+        
+        proj4.defs("EPSG:4490", "+proj=longlat +ellps=GRS80 +no_defs")
+        ol.proj.proj4.register(proj4)
+        
+        fetch(testurl3)
+          .then(function (response) {
+            return response.text();
+          })
+          .then(function (text) {
+            const result = parser.read(text);
+            const options = ol.source.WMTS.optionsFromCapabilities(result, {
+              layer: "SZMAP_ZW_2024_Q2_4490",
+              // matrixSet: 'EPSG:4490_SZMAP_ZW_2024_Q2_44901_dpi96_GB'
+            });
+            console.log(options)
+            map = new ol.Map({
+              layers: [
+                new ol.layer.Tile({
+                  source: new ol.source.WMTS({
+                    url: "http://19.45.1.42:8021/zgjcs/rest/services/SZMAP_ZW_2024_Q2_4490/WMTSServer",
+                    layer: options.layer,
+                    // 投影坐标系矩阵集，一定要和WMTS capabilities文档中一致，否则会加载失败
+                    matrixSet: options.matrixSet,          
+                    format: options.format,
+                    projection: options.projection,
+                    requestEncoding: options.requestEncoding,
+                    style: options.style,                   
+                    tileGrid: options.tileGrid,
+                    token: '846d7b91-d2a3-4edb-978c-48063e2840ef',
+                    wrapX: true   
+                  }),
+                }),
+              ],
+              target: "map",
+              view: new ol.View({
+                center: ol.proj.transform(
+                  [114.16501234730903, 22.56133289411102],
+                  "EPSG:4326",
+                  "EPSG:3857"
+                ),
+                zoom: 5,
+              }),
+            });
+          });
+      }
+    </script>
+  </body>
+</html>

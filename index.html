@@ -1,17 +1,19 @@
 <!--
  * @Author: liuwei 893624020@qq.com
- * @Date: 2024-11-15 09:17:39
+ * @Date: 2024-11-12 17:45:50
  * @LastEditors: liuwei 893624020@qq.com
- * @LastEditTime: 2024-11-15 13:09:26
- * @FilePath: \map-view\index.html
+ * @LastEditTime: 2024-11-16 15:59:40
+ * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
 <!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>openlayers-地图服务预览</title>
+    <meta charset="utf-8" />
+    <title>openlayers-wmts</title>
+    <script src="./js/openlayers/ol.js"></script>
+    <script src="./js/openlayers/proj4-src.min.js"></script>
+    <link rel="stylesheet" href="./js/openlayers/ol.css" />
     <style type="text/css">
       html,
       body,
@@ -19,92 +21,158 @@
         width: 100%;
         height: 100%;
         position: absolute;
+        padding: 0;
+        margin: 0;
       }
     </style>
-
-    <script src="./js/openlayers/ol.js"></script>
-    <script src="./js/openlayers/proj4-src.min.js"></script>
-    <link rel="stylesheet" href="./js/openlayers/ol.css" />
   </head>
-  <body onload="init()">
+  <body onload="getLayerUrlById()">
     <div id="map"></div>
-
     <script type="text/javascript">
-      function init() {
-        const capabilitiesUrl =
-          "https://t0.tianditu.gov.cn/img_c/wmts?request=GetCapabilities&service=wmts";
-        const parser = new ol.format.WMTSCapabilities();
+      // 矢量 http://19.45.1.42:8021/zgjcs/rest/services/SZMAP_ZW_2024_Q2_4490/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef
+      // 影像 http://19.45.1.42:8021/zgjcs/rest/services/SZSRI_20240102_50_4547_GK2_V2014/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef
+      
+      // 天地图key
+      const tk = "3764ab3da844e87462f2f827afa0f9f3";
+      
+      // const map_layer_url =
+      //   "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZSRI_20240102_50_4547_GK2_V2014/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf";
+      
 
-        proj4.defs("EPSG:4490", "+proj=longlat +ellps=GRS80 +no_defs");
-        ol.proj.proj4.register(proj4);
+      function init(map_layer_url, layerName, token) {
+        // 设置天地图底图
+        const projection = ol.proj.get("EPSG:4326");
+        const projectionExtent = projection.getExtent();
+        const size = ol.extent.getWidth(projectionExtent) / 256;
+        const resolutions = [];
+        for (let z = 2; z < 19; ++z) {
+          resolutions[z] = size / Math.pow(2, z);
+        }
+        const matrixIds = Array.from({ length: 17 }, (_, i) => i.toString());
 
-        fetch(capabilitiesUrl)
-          .then((response) => response.text())
-          .then((text) => {
-            const result = parser.read(text);
-            const options = ol.source.WMTS.optionsFromCapabilities(result, {
-              layer: "img",
-              matrixSet: "c",
-            });
-            debugger;
-
-            proj4.defs("EPSG:4490","GEOGCS[\"China Geodetic Coordinate System 2000\",DATUM[\"China_2000\",SPHEROID[\"CGCS2000\",6378137,298.257222101,AUTHORITY[\"EPSG\",\"1024\"]],AUTHORITY[\"EPSG\",\"1043\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4490\"]]");
-            ol.proj.proj4.register(proj4);
-
-            const projection = new ol.proj.Projection({
-              code: 'EPSG:4490', 
-              units: 'degrees',
-              axisOrientation: 'neu'
+        const list = ["vec", "cva"];
+        let layerList = [];
+        list.forEach((item) => {
+          layerList.push(
+            new ol.layer.Tile({
+              source: new ol.source.WMTS({
+                url: `https://t{0-6}.tianditu.gov.cn/${item}_c/wmts?tk=${tk}`, // 天地图key去官网很容易申请
+                layer: item,
+                matrixSet: "c",
+                style: "default",
+                crossOrigin: "anonymous",
+                format: "tiles",
+                wrapX: true,
+                tileGrid: new ol.tilegrid.WMTS({
+                  origin: ol.extent.getTopLeft(projection.getExtent()),
+                  resolutions: resolutions,
+                  matrixIds: matrixIds,
+                }),
+              }),
             })
+          );
+        });
+
+        // 请求图层的元数据
+        fetch(map_layer_url)
+          .then(function (response) {
+            return response.text();
+          })
+          .then(function (text) {
+            const parser = new ol.format.WMTSCapabilities();
+            let map;
+            // 注册4490坐标系
+            proj4.defs("EPSG:4490", "+proj=longlat +ellps=GRS80 +no_defs");
+            ol.proj.proj4.register(proj4);
+            const projection = new ol.proj.Projection({
+              code: "EPSG:4490",
+              units: "degrees",
+              axisOrientation: "neu",
+            });
             projection.setExtent([-180, -90, 180, 90]);
             projection.setWorldExtent([-180, -90, 180, 90]);
-            ol.proj.addProjection(projection)
-
-            let projectionExtent = projection.getExtent();
-            debugger
-            let size = ol.extent.getWidth(projectionExtent) / 256;
-            let resolutions = []; // 瓦片地图分辨率
-            let matrixIds = [];
-            for (let z = 0; z < 19; ++z) {
-              resolutions[z] = size / Math.pow(2, z);
-              matrixIds[z] = z + 1
-            }
-            console.log(resolutions)
-            console.log(matrixIds)
-            
-
-            let wmtsTileGrid = new ol.tilegrid.WMTS({
-              origin: ol.extent.getTopLeft(projectionExtent), // 原点（左上角）
-              resolutions: resolutions, // 瓦片分辨率
-              matrixIds: matrixIds, // 矩阵ID，就是瓦片坐标系z维度各个层级的标识
+            ol.proj.addProjection(projection);
+            const result = parser.read(text);
+            const options = ol.source.WMTS.optionsFromCapabilities(result, {
+              layer: layerName,
             });
-
-            // WMTS数据源与地图
-            let wmtsSource = new ol.source.WMTS({
-              url: "http://t0.tianditu.gov.cn/img_w/wmts?tk=18822034646069369d70e5264082114f", // 天地图key去官网很容易申请
-              layer: "img", // 图层名
-              // 投影坐标系矩阵集，一定要和WMTS capabilities文档中一致，否则会加载失败
-              matrixSet: "c",
-              format: "tiles", // 图片格式
-              projection: projection, // 投影坐标系
-              requestEncoding: "KVP", // 请求的编码方式，默认就是'KVP'
-              // 在WMTS capabilities文档中对应的样式名，一定要写，否则会加载失败
-              style: "default",
-              tileGrid: wmtsTileGrid, // 投影坐标系
-            });
-            let wmtsLayer = new ol.layer.Tile({
-              source: wmtsSource,
-            });
-
-            let map = new ol.Map({
+            map = new ol.Map({
+              layers: [
+                ...layerList,
+                new ol.layer.Tile({
+                  opacity: 1,
+                  source: new ol.source.WMTS({
+                    url: map_layer_url,
+                    layer: options.layer,
+                    matrixSet: options.matrixSet,
+                    format: options.format,
+                    projection: options.projection,
+                    requestEncoding: options.requestEncoding,
+                    style: options.style,
+                    tileGrid: options.tileGrid,
+                    token: token,
+                    wrapX: true,
+                  }),
+                }),
+              ],
               target: "map",
-              layers: [wmtsLayer],
               view: new ol.View({
-                center: [114.55365478992464, 30.488466965192984],
-                zoom: 4,
+                center: [114.16501, 22.5613],
+                projection: projection,
+                zoom: 12,
+                maxZoom: 17,
+                minZoom: 1,
               }),
             });
           });
+      }
+
+      function getUrlParams(url) {
+        const urlParams = new URLSearchParams(url.split('?')[1]);
+        const params = {};
+        for (let param of urlParams.entries()) {
+          params[param[0]] = param[1];
+        }
+        return params;
+      }
+
+      function getLayerUrlById () {
+        const searchParams = window.location.search;
+        const catald = getUrlParams(window.location.search).catald
+        const url  = `/guangdong/service-pub/share/gateway/catalog/byId?cataId=${catald}`
+        
+        
+        // 先登录接口
+        const loginUrl = '/guangdong/service-pub/share/login?username=admin&password=1qaz@WSX'
+        fetch(loginUrl)
+          .then(function (response) {
+            return response.text();
+          })
+          .then(function (res) {
+            const data = JSON.parse(res)
+            if (data.code == 200) {
+              // 登录成功后，调用获取地图服务的接口
+              fetch(url, { credentials: 'include' })
+                .then(function (response) {
+                  return response.text();
+                })
+                .then(function (res) {
+                  const data = JSON.parse(res)
+                  if (data && data.status == 200) {
+                    const map_layer_url = data.data.gateway.serApiUrl
+                    console.log(map_layer_url)
+
+                    let layerName = ''
+                    let token = ''
+                    if (map_layer_url.includes('/rest/services/')) { // 中地数码
+                      layerName = map_layer_url.split('/rest/services/')[1].split('/WMTSServer')[0]
+                      token = getUrlParams(map_layer_url).token
+                    }
+                    init(map_layer_url, layerName, token)
+                  }
+                })
+            }
+          })
       }
     </script>
   </body>
