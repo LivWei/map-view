@@ -2,7 +2,7 @@
  * @Author: liuwei 893624020@qq.com
  * @Date: 2024-11-12 17:45:50
  * @LastEditors: liuwei 893624020@qq.com
- * @LastEditTime: 2024-11-16 17:46:20
+ * @LastEditTime: 2024-11-18 09:26:51
  * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -31,16 +31,15 @@
     <script type="text/javascript">
       // 矢量 http://19.45.1.42:8021/zgjcs/rest/services/SZMAP_ZW_2024_Q2_4490/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef
       // 影像 http://19.45.1.42:8021/zgjcs/rest/services/SZSRI_20240102_50_4547_GK2_V2014/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef
-      
+
       // 天地图key
       const tk = "3764ab3da844e87462f2f827afa0f9f3";
 
       // const urlTarget = 'https://xtbgzww.digitalgd.com.cn/service-pub'
-      const urlTarget = '/guangdong'
-      
+      const urlTarget = "/guangdong";
+
       // const map_layer_url =
       //   "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZSRI_20240102_50_4547_GK2_V2014/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf";
-      
 
       function init(map_layer_url, layerName, token) {
         // 设置天地图底图
@@ -130,25 +129,25 @@
           });
       }
 
-      function init2(map_layer_url, layerName)  {
-        const url = 'https://xtbgzww.digitalgd.com.cn/service-pub/gtserver/mapserver/layer/WMTS/1.0/广东省市级行政区划/广东省市级行政区划?_key=c2eb30eceda45ebb972d1389e6fe197d'
-      
+      function init2(map_layer_url, layerName) {
+        const url =
+          "/guangdong/service-pub/gtserver/mapserver/layer/WMTS/1.0/广东省市级行政区划/广东省市级行政区划?_key=c2eb30eceda45ebb972d1389e6fe197d";
+
         proj4.defs("EPSG:4490", "+proj=longlat +ellps=GRS80 +no_defs");
-        const projection = new ol.proj.Projection({
-          code: 'EPSG:4490', 
-          units: 'degrees',
-          axisOrientation: 'neu'
+        const projection4490 = new ol.proj.Projection({
+          code: "EPSG:4490",
+          units: "degrees",
+          axisOrientation: "neu",
         });
-        projection.setExtent([-180, -90, 180, 90]);
-        projection.setWorldExtent([-180, -90, 180, 90]);
-        addProjection(projection)
-        const projection4490 = getProjection('EPSG:4490');
-        const view4490 = new View({
+        projection4490.setExtent([-180, -90, 180, 90]);
+        projection4490.setWorldExtent([-180, -90, 180, 90]);
+        ol.proj.addProjection(projection4490);
+        const view4490 = new ol.View({
           projection: projection4490,
           center: [114.16501, 22.5613],
-          zoom: 8
-        })
-        let projectionExtent = projection.getExtent();
+          zoom: 8,
+        });
+        let projectionExtent = projection4490.getExtent();
         let size = ol.extent.getWidth(projectionExtent) / 512; //size就是一个像素代表的经纬度
 
         let matrixIds = [];
@@ -160,34 +159,44 @@
           }
           return resolutions;
         }
-
-        const layer_wmts = new TileLayer({
-        source: new WMTS({
+        const layer_wmts = new ol.layer.Tile({
+          source: new ol.source.WMTS({
             //服务地址
             url: url,
-            layer: '广东省市级行政区划',
-            style: '广东省市级行政区划',
-            serviceName: '广东省市级行政区划',
+            layer: "广东省市级行政区划",
+            style: "广东省市级行政区划",
+            serviceName: "广东省市级行政区划",
             //切片集
-            matrixSet: 'EPSG:4490',
-            format: 'image/png',
+            matrixSet: "EPSG:4490",
+            format: "image/png",
             // projection: projection4490,
-            version: '1.0.0',
+            version: "1.0.0",
             //切片信息
-            tileGrid: new WMTSTileGrid({
-                tileSize: [512, 512],
-                extent: [-180.0, -90.0, 180.0, 90.0],//范围
-                origin: [-180.0, 90.0],
-                resolutions: getResolutions2(),
-                matrixIds: matrixIds
+            tileGrid: new ol.tilegrid.WMTS({
+              tileSize: [512, 512],
+              extent: [-180.0, -90.0, 180.0, 90.0], //范围
+              origin: [-180.0, 90.0],
+              resolutions: getResolutions2(),
+              matrixIds: matrixIds,
             }),
-            wrapX: true
-        })
+            wrapX: true,
+          }),
+        });
+
+        //初始化地图
+      const map2 = new ol.Map({
+        layers: [
+            layer_wmts
+        ],
+        //渲染方式
+        render: 'canvas',
+        target: 'map',
+        view: view4490
       });
       }
-      
+
       function getUrlParams(url) {
-        const urlParams = new URLSearchParams(url.split('?')[1]);
+        const urlParams = new URLSearchParams(url.split("?")[1]);
         const params = {};
         for (let param of urlParams.entries()) {
           params[param[0]] = param[1];
@@ -195,51 +204,61 @@
         return params;
       }
 
-      function getLayerUrlById () {
+      function getLayerUrlById() {
         const searchParams = window.location.search;
-        const catald = getUrlParams(window.location.search).catald
-        const url  = `${urlTarget}/service-pub/share/gateway/catalog/byId?cataId=${catald}`
-        
-        
+        const catald = getUrlParams(window.location.search).catald;
+        const url = `${urlTarget}/service-pub/share/gateway/catalog/byId?cataId=${catald}`;
+
         // 先登录接口
-        const loginUrl = `${urlTarget}/service-pub/share/login?username=admin&password=1qaz@WSX`
+        const loginUrl = `${urlTarget}/service-pub/share/login?username=admin&password=1qaz@WSX`;
         fetch(loginUrl)
           .then(function (response) {
             return response.text();
           })
           .then(function (res) {
-            const data = JSON.parse(res)
+            const data = JSON.parse(res);
             if (data.code == 200) {
               // 登录成功后，调用获取地图服务的接口
-              fetch(url, { credentials: 'include' })
+              fetch(url, { credentials: "include" })
                 .then(function (response) {
                   return response.text();
                 })
                 .then(function (res) {
-                  const data = JSON.parse(res)
+                  const data = JSON.parse(res);
                   if (data && data.status == 200) {
-                    const map_layer_url = data.data.gateway.serApiUrl
-                    console.log(map_layer_url)
+                    const map_layer_url = data.data.gateway.serApiUrl;
+                    console.log(map_layer_url);
 
-                    let layerName = ''
-                    let token = ''
-                    if (map_layer_url.includes('/rest/services/')) { // 中地数码
-                      layerName = map_layer_url.split('/rest/services/')[1].split('/WMTSServer')[0]
-                      token = getUrlParams(map_layer_url).token
-                      init(map_layer_url, layerName, token)
-                    } else if (map_layer_url.includes('mapserver/')) { // 航天宏图
-                      const _url = map_layer_url.split('/getTile')[0] + '/getCapabilities?_key' + map_layer_url.split('?_key')[1]
-                      layerName = map_layer_url.split('WMTS/1.0/')[1].split('/')[0]
+                    let layerName = "";
+                    let token = "";
+                    if (map_layer_url.includes("/rest/services/")) {
+                      // 中地数码
+                      layerName = map_layer_url
+                        .split("/rest/services/")[1]
+                        .split("/WMTSServer")[0];
+                      token = getUrlParams(map_layer_url).token;
+                      init(map_layer_url, layerName, token);
+                    } else if (map_layer_url.includes("mapserver/")) {
+                      // 航天宏图
+                      const _url =
+                        map_layer_url.split("/getTile")[0] +
+                        "/getCapabilities?_key" +
+                        map_layer_url.split("?_key")[1];
+                      layerName = map_layer_url
+                        .split("WMTS/1.0/")[1]
+                        .split("/")[0];
 
-                      const _url1 = _url.replace('https://xtbgzww.digitalgd.com.cn', urlTarget)
-                      debugger
+                      const _url1 = _url.replace(
+                        "https://xtbgzww.digitalgd.com.cn",
+                        urlTarget
+                      );
                       // http://10.167.65.44:8021/mapserver/all/WMTS/1.0/广东省区县行政区划/广东省区县行政区划/getCapabilities
-                      init2(_url1, layerName, token, map_layer_url)
+                      init2(_url1, layerName, token, map_layer_url);
                     }
                   }
-                })
+                });
             }
-          })
+          });
       }
     </script>
   </body>
