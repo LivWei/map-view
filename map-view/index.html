@@ -2,7 +2,7 @@
  * @Author: liuwei 893624020@qq.com
  * @Date: 2024-11-12 17:45:50
  * @LastEditors: liuwei 893624020@qq.com
- * @LastEditTime: 2024-11-18 10:39:14
+ * @LastEditTime: 2024-11-19 10:07:35
  * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -29,27 +29,127 @@
   <body onload="getLayerUrlById()">
     <div id="map"></div>
     <script type="text/javascript">
-      // 矢量 http://19.45.1.42:8021/zgjcs/rest/services/SZMAP_ZW_2024_Q2_4490/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef
-      // 影像 http://19.45.1.42:8021/zgjcs/rest/services/SZSRI_20240102_50_4547_GK2_V2014/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef
 
       const map_center = [114.16501, 22.5613];
       const map_zoom = 8;
+      
+      let map;
       // 天地图key
       const tk = "3764ab3da844e87462f2f827afa0f9f3";
 
-      const urlTarget = 'https://xtbgzww.digitalgd.com.cn/service-pub'
-      // const urlTarget = "/guangdong";
+      // const urlTarget = 'https://xtbgzww.digitalgd.com.cn/service-pub'
+      const urlTarget = "/guangdong";
 
-      // const map_layer_url =
-      //   "/guangdong/service-pub/gtserver/zgjcs/rest/services/SZSRI_20240102_50_4547_GK2_V2014/WMTSServer?token=846d7b91-d2a3-4edb-978c-48063e2840ef&_key=88596f8e0063d47d70d41f9b226227cf";
-
+      // 中地数码 WMTS
       function init(map_layer_url, layerName, token) {
+        // 请求图层的元数据
+        fetch(map_layer_url)
+          .then(function (response) {
+            return response.text();
+          })
+          .then(function (text) {
+            const parser = new ol.format.WMTSCapabilities();
+            getProjection4490();
+            const result = parser.read(text);
+            const options = ol.source.WMTS.optionsFromCapabilities(result, {
+              layer: layerName,
+            });
+
+            const _layer = new ol.layer.Tile({
+              opacity: 0.8,
+              source: new ol.source.WMTS({
+                url: map_layer_url,
+                layer: options.layer,
+                matrixSet: options.matrixSet,
+                format: options.format,
+                projection: options.projection,
+                requestEncoding: options.requestEncoding,
+                style: options.style,
+                tileGrid: options.tileGrid,
+                token: token,
+                wrapX: true,
+              }),
+            })
+
+            map.addLayer(_layer)
+          });
+      }
+      // 航天宏图 WMTS
+      function init2(map_layer_url, layerName) {
+        const url = map_layer_url.replace("/getCapabilities", '');
+        // 请求图层的元数据
+        fetch(map_layer_url)
+          .then(function (response) {
+            return response.text();
+          })
+          .then(function (text) {
+            const parser = new ol.format.WMTSCapabilities();
+            const result = parser.read(text);
+            const options = ol.source.WMTS.optionsFromCapabilities(result, {
+              layer: layerName,
+            });
+            console.log(options)
+            const url = map_layer_url.replace("/getCapabilities", "");
+
+            
+            let projectionExtent = getProjection4490().getExtent();
+            let size = ol.extent.getWidth(projectionExtent) / 512; //size就是一个像素代表的经纬度
+
+            let matrixIds = [];
+            function getResolutions2() {
+              let resolutions = [];
+              for (let z = 0; z < 20; ++z) {
+                resolutions[z] = size / Math.pow(2, z);
+                matrixIds[z] = z;
+              }
+              return resolutions;
+            }
+
+            const layer_wmts = new ol.layer.Tile({
+              source: new ol.source.WMTS({
+                url: url,
+                layer: options.layer,
+                style: options.style,
+                serviceName: options.layer,
+                matrixSet: options.matrixSet,
+                format: options.format,
+                tileGrid: new ol.tilegrid.WMTS({
+                  tileSize: [512, 512],
+                  extent: [-180.0, -90.0, 180.0, 90.0], //范围
+                  origin: [-180.0, 90.0],
+                  resolutions: getResolutions2(),
+                  matrixIds: matrixIds,
+                }),
+                wrapX: true,
+              }),
+            });
+
+            map.addLayer(layer_wmts);
+
+          })
+        
+
+        let projectionExtent = getProjection4490().getExtent();
+        let size = ol.extent.getWidth(projectionExtent) / 512; //size就是一个像素代表的经纬度
+
+        let matrixIds = [];
+        function getResolutions2() {
+          let resolutions = [];
+          for (let z = 0; z < 20; ++z) {
+            resolutions[z] = size / Math.pow(2, z);
+            matrixIds[z] = z;
+          }
+          return resolutions;
+        }
+      }
+      // 天地图地图
+      function addBaseMap() {
         // 设置天地图底图
         const projection = ol.proj.get("EPSG:4326");
         const projectionExtent = projection.getExtent();
         const size = ol.extent.getWidth(projectionExtent) / 256;
         const resolutions = [];
-        for (let z = 2; z < 19; ++z) {
+        for (let z = 1; z < 20; ++z) {
           resolutions[z] = size / Math.pow(2, z);
         }
         const matrixIds = Array.from({ length: 17 }, (_, i) => i.toString());
@@ -76,101 +176,17 @@
             })
           );
         });
-
-        // 请求图层的元数据
-        fetch(map_layer_url)
-          .then(function (response) {
-            return response.text();
-          })
-          .then(function (text) {
-            const parser = new ol.format.WMTSCapabilities();
-            let map;
-            getProjection4490();
-            const result = parser.read(text);
-            const options = ol.source.WMTS.optionsFromCapabilities(result, {
-              layer: layerName,
-            });
-            map = new ol.Map({
-              layers: [
-                ...layerList,
-                new ol.layer.Tile({
-                  opacity: 1,
-                  source: new ol.source.WMTS({
-                    url: map_layer_url,
-                    layer: options.layer,
-                    matrixSet: options.matrixSet,
-                    format: options.format,
-                    projection: options.projection,
-                    requestEncoding: options.requestEncoding,
-                    style: options.style,
-                    tileGrid: options.tileGrid,
-                    token: token,
-                    wrapX: true,
-                  }),
-                }),
-              ],
-              target: "map",
-              view: new ol.View({
-                center: map_center,
-                projection: getProjection4490(),
-                zoom: map_zoom + 2,
-              }),
-            });
-          });
-      }
-
-      function init2(map_layer_url, layerName) {
-        const url = map_layer_url.replace("/getCapabilities", '');
-
-        const view4490 = new ol.View({
-          projection: getProjection4490(),
-          center: map_center,
-          zoom: map_zoom,
-        });
-        let projectionExtent = getProjection4490().getExtent();
-        let size = ol.extent.getWidth(projectionExtent) / 512; //size就是一个像素代表的经纬度
-
-        let matrixIds = [];
-        function getResolutions2() {
-          let resolutions = [];
-          for (let z = 0; z < 20; ++z) {
-            resolutions[z] = size / Math.pow(2, z);
-            matrixIds[z] = z;
-          }
-          return resolutions;
-        }
-
-        const layer_wmts = new ol.layer.Tile({
-          source: new ol.source.WMTS({
-            //服务地址
-            url: url,
-            layer: layerName,
-            style: layerName,
-            serviceName: layerName,
-            //切片集
-            matrixSet: "EPSG:4490",
-            format: "image/png",
-            version: "1.0.0",
-            //切片信息
-            tileGrid: new ol.tilegrid.WMTS({
-              tileSize: [512, 512],
-              extent: [-180.0, -90.0, 180.0, 90.0], //范围
-              origin: [-180.0, 90.0],
-              resolutions: getResolutions2(),
-              matrixIds: matrixIds,
-            }),
-            wrapX: true,
+        map = new ol.Map({
+          layers: layerList,
+          target: "map",
+          view: new ol.View({
+            center: map_center,
+            projection: getProjection4490(),
+            zoom: map_zoom + 2,
           }),
         });
-
-        //初始化地图
-        const map2 = new ol.Map({
-          layers: [layer_wmts],
-          target: "map",
-          view: view4490,
-        });
       }
-
+      // 获取URL参数
       function getUrlParams(url) {
         const urlParams = new URLSearchParams(url.split("?")[1]);
         const params = {};
@@ -194,11 +210,13 @@
         ol.proj.addProjection(projection);
         return projection;
       }
-
+      // 通过id获取url
       function getLayerUrlById() {
         const searchParams = window.location.search;
         const catald = getUrlParams(window.location.search).catald;
         const url = `${urlTarget}/service-pub/share/gateway/catalog/byId?cataId=${catald}`;
+
+        addBaseMap()
 
         // 登录成功后，调用获取地图服务的接口
         fetch(url, { credentials: "include" })
@@ -224,7 +242,7 @@
                   urlTarget
                 );
                 init(_url1, layerName, token);
-              } else if (map_layer_url.includes("mapserver/")) {
+              } else if (map_layer_url.includes("mapserver/") && map_layer_url.includes("WMTS")) {
                 // 航天宏图
                 const _url =
                   map_layer_url.split("/getTile")[0] +
