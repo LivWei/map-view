@@ -2,7 +2,7 @@
  * @Author: liuwei 893624020@qq.com
  * @Date: 2024-11-12 17:45:50
  * @LastEditors: liuwei 893624020@qq.com
- * @LastEditTime: 2024-11-19 18:18:24
+ * @LastEditTime: 2024-11-19 18:42:32
  * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -29,7 +29,7 @@
   <body onload="getLayerUrlById()">
     <div id="map"></div>
     <script type="text/javascript">
-      const test = false  // 是否在本地开发
+      const test = true  // 是否在本地开发
 
       const map_center = [114.16501, 22.5613];
       const map_zoom = 6;
@@ -149,7 +149,7 @@
           request: "GetFeature",
           layerName: layerName, // 替换为您的图层名称，格式为workspace:layer_name
           outputFormat: "application/json",
-          maxFeatures: 10000,
+          maxFeatures: 1000000,
           srsName: "EPSG:4490", // 根据您的坐标系选择合适的EPSG代码
           _key: key
         };
@@ -160,10 +160,13 @@
         const fullUrl = `${map_layer_url}?${queryString}`;
         
         // 测试时使用
-        const _fullUrl = test ? fullUrl.replace(
-          "/gtserver",
-          ""
-        ) : fullUrl
+        let _fullUrl = ''
+        if (fullUrl.includes('/WFS')) {
+            _fullUrl = fullUrl.replace(
+            "/gtserver",
+            ""
+          )
+        }
 
         fetch(_fullUrl, { credentials: "include" })
           .then(function (response) {
