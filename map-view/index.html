@@ -2,7 +2,7 @@
  * @Author: liuwei 893624020@qq.com
  * @Date: 2024-11-12 17:45:50
  * @LastEditors: liuwei 893624020@qq.com
- * @LastEditTime: 2024-11-19 16:10:24
+ * @LastEditTime: 2024-11-19 18:18:24
  * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -29,6 +29,8 @@
   <body onload="getLayerUrlById()">
     <div id="map"></div>
     <script type="text/javascript">
+      const test = false  // 是否在本地开发
+
       const map_center = [114.16501, 22.5613];
       const map_zoom = 6;
 
@@ -36,8 +38,8 @@
       // 天地图key
       const tk = "3764ab3da844e87462f2f827afa0f9f3";
 
-      const urlTarget = 'https://xtbgzww.digitalgd.com.cn/service-pub'
-      // const urlTarget = "/guangdong";
+      // const urlTarget = 'https://xtbgzww.digitalgd.com.cn/service-pub'
+      const urlTarget = test ? "/guangdong" : 'https://xtbgzww.digitalgd.com.cn/service-pub'
 
       // 中地数码 WMTS
       function addZdsmWMTSLayers(map_layer_url, layerName, token) {
@@ -158,10 +160,10 @@
         const fullUrl = `${map_layer_url}?${queryString}`;
         
         // 测试时使用
-        // const _fullUrl = fullUrl.replace(
-        //   "/gtserver",
-        //   ""
-        // );
+        const _fullUrl = test ? fullUrl.replace(
+          "/gtserver",
+          ""
+        ) : fullUrl
 
         fetch(_fullUrl, { credentials: "include" })
           .then(function (response) {
