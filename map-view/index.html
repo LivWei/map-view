@@ -2,7 +2,7 @@
  * @Author: liuwei 893624020@qq.com
  * @Date: 2024-11-12 17:45:50
  * @LastEditors: liuwei 893624020@qq.com
- * @LastEditTime: 2024-11-21 15:53:57
+ * @LastEditTime: 2024-11-21 16:41:11
  * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -34,6 +34,19 @@
 
       const map_center = [114.16501, 22.5613];
       const map_zoom = 6;
+
+      const fill = new ol.style.Fill({
+        color: "rgba(239,152,152, 0.8)",
+      });
+      const stroke = new ol.style.Stroke({
+        color: "#319FD3",
+        width: 1,
+      });
+      const image = new ol.style.Circle({
+        radius: 7,
+        fill: fill,
+        stroke: stroke,
+      });
 
       let map;
       // 天地图key
@@ -79,15 +92,17 @@
           });
       }
       // 中地数码 WFS
-      function addZdsmWFSLayers(map_layer_url, layerName, token) {
-        const url = `${urlTarget}/service-pub/gtserver/zgjcs/rest/services/BWG/WFSServer`;
+      function addZdsmWFSLayers(map_layer_url, layerName, token, key) {
+        const url = `${urlTarget}/service-pub/gtserver${
+          map_layer_url.split("/gtserver")[1].split("?")[0]
+        }`;
         const params = {
           service: "WFS",
           version: "1.1.0",
           request: "GetFeature",
-          typename: "BWG:t0", // 替换为您的图层名称，格式为workspace:layer_name
-          token: "846d7b91-d2a3-4edb-978c-48063e2840ef",
-          _key: "f15b70b28976601e7cd93927a05dca3e",
+          typename: `${layerName}:t0`, // 替换为您的图层名称，格式为workspace:layer_name
+          token: token || "846d7b91-d2a3-4edb-978c-48063e2840ef",
+          _key: key,
         };
 
         const queryString = Object.keys(params)
@@ -107,32 +122,9 @@
             const jsonList = json.FeatureCollection.featureMembers.t0;
 
             const styles = new ol.style.Style({
-              fill: new ol.style.Fill({
-                color: "rgba(239,152,152, 0.5)",
-              }),
-              stroke: new ol.style.Stroke({
-                color: "#319FD3",
-                width: 1,
-              }),
-              image: new ol.style.Circle({
-                radius: 7,
-                fill: new ol.style.Fill({
-                  color: "red",
-                }),
-              }),
-              // text: new ol.style.Text({
-              //   //位置
-              //   textAlign: "center",
-              //   //基准线
-              //   textBaseline: "middle",
-              //   //文字样式
-              //   font: "normal 14px 微软雅黑",
-              //   //文本内容
-              //   text: feature.get("name"),
-              //   //文本填充样式（即文字颜色）
-              //   fill: new ol.style.Fill({ color: "#aa3300" }),
-              //   stroke: new ol.style.Stroke({ color: "#ffcc33", width: 2 }),
-              // }),
+              fill: fill,
+              stroke: stroke,
+              image: image,
             });
 
             const source = new ol.layer.Tile({
@@ -140,28 +132,47 @@
             });
             const featureList = [];
 
-            // jsonList[0].the_geom.MultiPoint.pointMember.Point.pos.__text
-            // ol.proj.transform([487516.8680999996,2491659.1425], getProjection4547(), getProjection4490())
-            jsonList.forEach((item) => {
-              const lonlat =
-                item.the_geom.MultiPoint.pointMember.Point.pos.__text.split(' ');
-              const lon = Number(lonlat[0]);
-              const lat = Number(lonlat[1]);
-              const transLonlat = ol.proj.transform(
-                [lon, lat],
-                getProjection4547(),
-                getProjection4490()
-              );
-              debugger
-              featureList.push(
-                new ol.Feature({
+            if (Array.isArray(jsonList)) {
+              // 如果是多点
+              jsonList.forEach((item) => {
+                const lonlat =
+                  item.the_geom.MultiPoint.pointMember.Point.pos.__text.split(
+                    " "
+                  );
+                const lon = Number(lonlat[0]);
+                const lat = Number(lonlat[1]);
+                const transLonlat = ol.proj.transform(
+                  [lon, lat],
+                  getProjection4547(),
+                  getProjection4490()
+                );
+                const Feature = new ol.Feature({
                   geometry: new ol.geom.Point(transLonlat),
                   name: item["标准名"].__text,
-                })
-              );
-            });
-            console.log(22)
-            console.log(featureList)
+                });
+                Feature.setStyle(
+                  new ol.style.Style({
+                    image: image,
+                    text: new ol.style.Text({
+                      text: item["标准名"].__text,
+                      offsetY: -5,
+                      fill: new ol.style.Fill({ color: "#000000" }),
+                    }),
+                  })
+                );
+                featureList.push(Feature);
+              });
+            } else if (jsonList.the_geom){
+              // 如果是多面
+              const surfaceList = jsonList.the_geom.MultiSurface.surfaceMember
+              surfaceList.forEach(item => {
+                console.log(item.Polygon.interior)
+              })
+            }
+
+            // jsonList[0].the_geom.MultiPoint.pointMember.Point.pos.__text
+            // ol.proj.transform([487516.8680999996,2491659.1425], getProjection4547(), getProjection4490())
+
             const vectorLayer = new ol.layer.Vector({
               source: new ol.source.Vector({
                 features: featureList,
@@ -274,8 +285,6 @@
       }
       // 航天宏图 WFS
       function addHtWFSLayers(map_layer_url, layerName, key) {
-        addZdsmWFSLayers(map_layer_url, layerName, key);
-        return
         const params = {
           service: "WFS",
           version: "1.1.0",
@@ -306,19 +315,9 @@
             const jsonList = JSON.parse(res);
 
             const styles = new ol.style.Style({
-              fill: new ol.style.Fill({
-                color: "rgba(239,152,152, 0.5)",
-              }),
-              stroke: new ol.style.Stroke({
-                color: "#319FD3",
-                width: 1,
-              }),
-              image: new ol.style.Circle({
-                radius: 4,
-                fill: new ol.style.Fill({
-                  color: "red",
-                }),
-              }),
+              fill: fill,
+              stroke: stroke,
+              image: image,
             });
 
             const source = new ol.layer.Tile({
@@ -329,9 +328,9 @@
             jsonList.forEach((item) => {
               featureList.push(format.readFeature(item.geom));
             });
-            
-            console.log(11)
-            console.log(featureList)
+
+            console.log(11);
+            console.log(featureList);
             const vectorLayer = new ol.layer.Vector({
               source: new ol.source.Vector({
                 features: featureList,
@@ -448,21 +447,35 @@
               let layerName = "";
               let token = "";
               if (map_layer_url.includes("/rest/services/")) {
-                // 中地数码
-                layerName = map_layer_url
-                  .split("/rest/services/")[1]
-                  .split("/WMTSServer")[0];
-                token = getUrlParams(map_layer_url).token;
-                const _url1 = map_layer_url.replace(
-                  "https://xtbgzww.digitalgd.com.cn",
-                  urlTarget
-                );
-                addZdsmWMTSLayers(_url1, layerName, token);
+                if (map_layer_url.includes("/WMTSServer")) {
+                  // 中地数码 WMTS
+                  layerName = map_layer_url
+                    .split("/rest/services/")[1]
+                    .split("/WMTSServer")[0];
+                  token = getUrlParams(map_layer_url).token;
+                  const _url1 = map_layer_url.replace(
+                    "https://xtbgzww.digitalgd.com.cn",
+                    urlTarget
+                  );
+                  addZdsmWMTSLayers(_url1, layerName, token);
+                } else {
+                  // 中地数码 WFS
+                  layerName = map_layer_url
+                    .split("/rest/services/")[1]
+                    .split("/WFSServer")[0];
+                  token = getUrlParams(map_layer_url).token;
+                  const key = getUrlParams(map_layer_url)._key;
+                  const _url1 = map_layer_url.replace(
+                    "https://xtbgzww.digitalgd.com.cn",
+                    urlTarget
+                  );
+                  addZdsmWFSLayers(_url1, layerName, token, key);
+                }
               } else if (
                 map_layer_url.includes("mapserver/") &&
                 map_layer_url.includes("WMTS")
               ) {
-                // 航天宏图
+                // 航天宏图 WMTS
                 const _url =
                   map_layer_url.split("/getTile")[0] +
                   "/getCapabilities?_key" +
@@ -479,6 +492,7 @@
                 map_layer_url.includes("mapserver/") &&
                 map_layer_url.includes("WFS")
               ) {
+                // 航天宏图 WFS
                 const list = map_layer_url.split("/getFeature")[0].split("/");
                 const layerName = list[list.length - 1];
                 const _url1 = map_layer_url
