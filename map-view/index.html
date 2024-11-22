@@ -2,7 +2,7 @@
  * @Author: liuwei 893624020@qq.com
  * @Date: 2024-11-12 17:45:50
  * @LastEditors: liuwei 893624020@qq.com
- * @LastEditTime: 2024-11-22 10:06:16
+ * @LastEditTime: 2024-11-22 14:47:56
  * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -52,15 +52,19 @@
       // 天地图key
       const tk = "3764ab3da844e87462f2f827afa0f9f3";
 
+      // 深圳 中地数码 token
+      const token = "846d7b91-d2a3-4edb-978c-48063e2840ef"
+
       // const urlTarget = 'https://xtbgzww.digitalgd.com.cn/service-pub'
       const urlTarget = test
-        ? "/guangdong"
-        : "https://xtbgzww.digitalgd.com.cn/service-pub";
+        ? "/guangdong/service-pub"
+        : "";
 
       // 中地数码 WMTS
-      function addZdsmWMTSLayers(map_layer_url, layerName, token) {
+      function addZdsmWMTSLayers(map_layer_url, layerName, serviceCode) {
+        const url = `${map_layer_url}?serviceCode=${serviceCode}&token=${token}`
         // 请求图层的元数据
-        fetch(map_layer_url)
+        fetch(url)
           .then(function (response) {
             return response.text();
           })
@@ -75,7 +79,7 @@
             const _layer = new ol.layer.Tile({
               opacity: 1,
               source: new ol.source.WMTS({
-                url: map_layer_url,
+                url: url,
                 layer: options.layer,
                 matrixSet: options.matrixSet,
                 format: options.format,
@@ -83,6 +87,7 @@
                 requestEncoding: options.requestEncoding,
                 style: options.style,
                 tileGrid: options.tileGrid,
+                serviceCode: serviceCode,
                 token: token,
                 wrapX: true,
               }),
@@ -92,23 +97,20 @@
           });
       }
       // 中地数码 WFS
-      function addZdsmWFSLayers(map_layer_url, layerName, token, key) {
-        const url = `${urlTarget}/service-pub/gtserver${
-          map_layer_url.split("/gtserver")[1].split("?")[0]
-        }`;
+      function addZdsmWFSLayers(map_layer_url, layerName, serviceCode) {
         const params = {
           service: "WFS",
           version: "1.1.0",
           request: "GetFeature",
-          typename: `${layerName}:t0`, // 替换为您的图层名称，格式为workspace:layer_name
-          token: token || "846d7b91-d2a3-4edb-978c-48063e2840ef",
-          _key: key || "f15b70b28976601e7cd93927a05dca3e",
+          typename: `${layerName}:t0`, // 图层名称，格式为workspace:layer_name
+          token: token,
+          serviceCode: serviceCode,
         };
 
         const queryString = Object.keys(params)
           .map((key) => `${key}=${encodeURIComponent(params[key])}`)
           .join("&");
-        const fullUrl = `${url}?${queryString}`;
+        const fullUrl = `${map_layer_url}?${queryString}`;
 
         fetch(fullUrl, { credentials: "include" })
           .then(function (response) {
@@ -233,10 +235,9 @@
           });
       }
       // 航天宏图 WMTS
-      function addHtWMTSLayers(map_layer_url, layerName) {
-        const url = map_layer_url.replace("/getCapabilities", "");
+      function addHtWMTSLayers(map_layer_url, layerName, WMTSGetCapabilitiesUrl) {
         // 请求图层的元数据
-        fetch(map_layer_url)
+        fetch(WMTSGetCapabilitiesUrl)
           .then(function (response) {
             return response.text();
           })
@@ -247,7 +248,7 @@
               layer: layerName,
             });
             console.log(options);
-            const url = map_layer_url.replace("/getCapabilities", "");
+            const url = WMTSGetCapabilitiesUrl.replace("/getCapabilities", "");
 
             let projectionExtent = getProjection4490().getExtent();
             let size = ol.extent.getWidth(projectionExtent) / 512; //size就是一个像素代表的经纬度
@@ -333,7 +334,7 @@
           });
       }
       // 航天宏图 WFS
-      function addHtWFSLayers(map_layer_url, layerName, key) {
+      function addHtWFSLayers(map_layer_url, layerName, serviceCode) {
         const params = {
           service: "WFS",
           version: "1.1.0",
@@ -342,13 +343,13 @@
           outputFormat: "application/json",
           maxFeatures: 1000000,
           srsName: "EPSG:4490", // 根据您的坐标系选择合适的EPSG代码
-          _key: key,
+          serviceCode: serviceCode,
         };
 
         const queryString = Object.keys(params)
           .map((key) => `${key}=${encodeURIComponent(params[key])}`)
           .join("&");
-        const fullUrl = `${map_layer_url}?${queryString}`;
+        const fullUrl = `${map_layer_url}/getFeature?${queryString}`;
 
         // 测试时使用
         let _fullUrl = "";
@@ -491,64 +492,45 @@
             const data = JSON.parse(res);
             if (data && data.status == 200) {
               const map_layer_url = data.data.gateway.serApiUrl;
+              const serviceCode = data.data.gateway.serviceCode
               console.log(map_layer_url);
+              console.log(serviceCode);
 
-              let layerName = "";
-              let token = "";
+              function changeUrl(url) {
+                // 使用正则表达式匹配协议和域名/IP部分
+                const regex = /^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www\.)?([^\/\n]+)(.*)/;
+                // 使用正则表达式替换匹配的部分
+                return url.replace(regex, '$2');
+              }
+
               if (map_layer_url.includes("/rest/services/")) {
-                if (map_layer_url.includes("/WMTSServer")) {
-                  // 中地数码 WMTS
-                  layerName = map_layer_url
-                    .split("/rest/services/")[1]
-                    .split("/WMTSServer")[0];
-                  token = getUrlParams(map_layer_url).token;
-                  const _url1 = map_layer_url.replace(
-                    "https://xtbgzww.digitalgd.com.cn",
-                    urlTarget
-                  );
-                  addZdsmWMTSLayers(_url1, layerName, token);
-                } else {
-                  // 中地数码 WFS
-                  layerName = map_layer_url
-                    .split("/rest/services/")[1]
-                    .split("/WFSServer")[0];
-                  token = getUrlParams(map_layer_url).token;
-                  const key = getUrlParams(map_layer_url)._key;
-                  const _url1 = map_layer_url.replace(
-                    "https://xtbgzww.digitalgd.com.cn",
-                    urlTarget
-                  );
-                  addZdsmWFSLayers(_url1, layerName, token, key);
+                // 中地数码
+                const paramsList = map_layer_url.split('/rest/services/')[1].split('/')
+                const layerName = paramsList[paramsList.length - 2]
+                const _url = `${urlTarget}${changeUrl(map_layer_url)}`;
+                if (map_layer_url.includes('WMTS')) {
+                  addZdsmWMTSLayers(_url, layerName, serviceCode);
                 }
-              } else if (
-                map_layer_url.includes("mapserver/") &&
-                map_layer_url.includes("WMTS")
-              ) {
-                // 航天宏图 WMTS
-                const _url =
-                  map_layer_url.split("/getTile")[0] +
-                  "/getCapabilities?_key" +
-                  map_layer_url.split("?_key")[1];
-                layerName = map_layer_url.split("WMTS/1.0/")[1].split("/")[0];
+                if (map_layer_url.includes('WFS')) {
+                  addZdsmWFSLayers(_url, layerName, serviceCode);
+                }
+              }
 
-                const _url1 = _url.replace(
-                  "https://xtbgzww.digitalgd.com.cn",
-                  urlTarget
-                );
-                // http://10.167.65.44:8021/mapserver/all/WMTS/1.0/广东省区县行政区划/广东省区县行政区划/getCapabilities
-                addHtWMTSLayers(_url1, layerName);
-              } else if (
-                map_layer_url.includes("mapserver/") &&
-                map_layer_url.includes("WFS")
-              ) {
-                // 航天宏图 WFS
-                const list = map_layer_url.split("/getFeature")[0].split("/");
-                const layerName = list[list.length - 1];
-                const _url1 = map_layer_url
-                  .replace("https://xtbgzww.digitalgd.com.cn", urlTarget)
-                  .split("?")[0];
-                const key = getUrlParams(map_layer_url)._key;
-                addHtWFSLayers(_url1, layerName, key);
+              if (map_layer_url.includes('/mapserver/layer/WMTS') || map_layer_url.includes('/image/WMTS')) {
+                //航天宏图WMTS服务
+                const _url = changeUrl(map_layer_url).split("/getTile")[0];
+                const urlParamsList = _url.split("/");
+                const layerName = urlParamsList[urlParamsList.length - 2];
+                const WMTSGetCapabilitiesUrl = `${urlTarget}${_url}/getCapabilities?serviceCode=${serviceCode}`
+                addHtWMTSLayers(_url, layerName, WMTSGetCapabilitiesUrl)
+              }
+
+              if (map_layer_url.includes('/mapserver') && map_layer_url.includes('/WFS')) {
+                //航天宏图WFS服务
+                const _url = urlTarget + changeUrl(map_layer_url).split("/getFeature")[0];
+                const urlParamsList = _url.split("/");
+                const layerName = urlParamsList[urlParamsList.length - 1];
+                addHtWFSLayers(_url, layerName, serviceCode)
               }
             }
           });
