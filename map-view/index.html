@@ -2,7 +2,7 @@
  * @Author: liuwei 893624020@qq.com
  * @Date: 2024-11-12 17:45:50
  * @LastEditors: liuwei 893624020@qq.com
- * @LastEditTime: 2024-11-21 16:41:11
+ * @LastEditTime: 2024-11-22 10:06:16
  * @FilePath: \leaflet\arcgis\openlayers\openlayers-wmts.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -102,7 +102,7 @@
           request: "GetFeature",
           typename: `${layerName}:t0`, // 替换为您的图层名称，格式为workspace:layer_name
           token: token || "846d7b91-d2a3-4edb-978c-48063e2840ef",
-          _key: key,
+          _key: key || "f15b70b28976601e7cd93927a05dca3e",
         };
 
         const queryString = Object.keys(params)
@@ -162,12 +162,61 @@
                 );
                 featureList.push(Feature);
               });
-            } else if (jsonList.the_geom){
+            } else if (jsonList.the_geom) {
+              function getCoordinateList(coordinatesStr) {
+                // 将坐标字符串分割成数组
+                const coordinatesArray = coordinatesStr.split(" ");
+                // 将坐标数组转换为经纬度坐标对数组
+                const latLongArray = [];
+                for (let i = 0; i < coordinatesArray.length; i += 2) {
+                  if (i + 1 < coordinatesArray.length) {
+                    latLongArray.push([parseFloat(coordinatesArray[i]), parseFloat(coordinatesArray[i + 1])]);
+                  }
+                }
+                // 输出经纬度坐标数组
+                // console.log(latLongArray);
+                return latLongArray
+              }
+
+              function setFeature(coorStr, lon, lat) {
+                const coorList = getCoordinateList(coorStr)
+                
+                const PolygonList = []
+                coorList.forEach(m => {
+                  PolygonList.push(ol.proj.transform(
+                    [m[lon], m[lat]],
+                    getProjection4547(),
+                    getProjection4490()
+                  ))
+                })
+
+                const Feature = new ol.Feature({
+                  geometry: new ol.geom.Polygon([PolygonList]),
+                });
+
+                Feature.setStyle(styles);
+                featureList.push(Feature);
+              }
+
               // 如果是多面
-              const surfaceList = jsonList.the_geom.MultiSurface.surfaceMember
-              surfaceList.forEach(item => {
-                console.log(item.Polygon.interior)
-              })
+              const surfaceList = jsonList.the_geom.MultiSurface.surfaceMember;
+              surfaceList.forEach((item) => {
+                if (item.Polygon.exterior) {
+                  const coorStr = item.Polygon.exterior.LinearRing.posList.__text
+                  setFeature(coorStr, 0, 1)
+                }
+                if (item.Polygon.interior) {
+                  if (Array.isArray(item.Polygon.interior)) {
+                    item.Polygon.interior.forEach(m => {
+                      const coorStr = m.LinearRing.posList.__text
+                      setFeature(coorStr, 1, 0)
+                    })
+                  } else {
+                    const coorStr = item.Polygon.interior.LinearRing.posList.__text
+                    setFeature(coorStr, 1, 0)
+                  }
+                }
+              });
             }
 
             // jsonList[0].the_geom.MultiPoint.pointMember.Point.pos.__text
